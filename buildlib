@@ -17,6 +17,51 @@ import glob
 logger = logging.getLogger(__name__)
 
 
+def build_amrex(bldroot, fms_dir, case):
+    ###############################################################################
+    """Configure, build and install the bundled AMReX submodule.
+
+    AMReX is a C++ dependency of TIM (the turbotmp/tim C++ helpers include
+    AMReX headers). It is vendored as the `amrex` git submodule of this
+    interface and built here into the FMS build tree. The CMake options mirror
+    the recipe the turbo-stack uses on Derecho. Returns the install prefix.
+    Skips the build if a previous install is already present.
+    """
+    amrex_src = os.path.join(fms_dir, "amrex")
+    amrex_bld = os.path.join(bldroot, "amrex", "build")
+    amrex_install = os.path.join(bldroot, "amrex", "install")
+    libamrex = os.path.join(amrex_install, "lib", "libamrex.a")
+
+    if not os.path.isfile(os.path.join(amrex_src, "CMakeLists.txt")):
+        raise SystemExit(
+            f"ERROR: AMReX submodule not found at {amrex_src}. "
+            "Run: git submodule update --init amrex"
+        )
+
+    if os.path.isfile(libamrex):
+        print(f"fms: AMReX already built at {amrex_install}")
+        return amrex_install
+
+    gmake_j = case.get_value("GMAKE_J") or 4
+    configure = (
+        f"cmake -S {amrex_src} -B {amrex_bld} --install-prefix {amrex_install} "
+        "-DCMAKE_BUILD_TYPE=Release "
+        "-DCMAKE_C_COMPILER=mpicc "
+        "-DCMAKE_CXX_COMPILER=mpicxx "
+        "-DCMAKE_Fortran_COMPILER=mpif90 "
+        "-DAMReX_MPI=ON -DAMReX_OMP=OFF -DAMReX_GPU_BACKEND=NONE "
+        "-DAMReX_SPACEDIM=3 -DAMReX_PRECISION=DOUBLE "
+        "-DAMReX_FORTRAN=YES -DAMReX_FORTRAN_INTERFACES=YES "
+        "-DAMReX_LINEAR_SOLVERS=ON -DAMReX_PARTICLES=ON -DAMReX_EB=OFF "
+        "-DAMReX_TINY_PROFILE=ON"
+    )
+    print(f"fms: building AMReX from {amrex_src}")
+    run_bld_cmd_ensure_logging(configure, logger)
+    run_bld_cmd_ensure_logging(f"cmake --build {amrex_bld} -j {gmake_j}", logger)
+    run_bld_cmd_ensure_logging(f"cmake --install {amrex_bld}", logger)
+    return amrex_install
+
+
 def parse_command_line(args, description):
     ###############################################################################
     parser = argparse.ArgumentParser(
@@ -57,11 +102,19 @@ def buildlib(bldroot, installpath, case):
     srcroot = case.get_value("SRCROOT")
     caseroot = case.get_value("CASEROOT")
     fms_dir = os.path.join(srcroot, "libraries", "FMS")
+
+    # Build the bundled AMReX submodule; TIM's C++ helpers include its headers.
+    amrex_install = build_amrex(bldroot, fms_dir, case)
+
     fpfile = os.path.join(bldroot, "Filepath")
     if not os.path.isfile(fpfile):
         filepath = []
         for _dir in glob.iglob(os.path.join(fms_dir, "src", "*")):
-            if os.path.isdir(_dir) and not "cime_config" in _dir:
+            _base = os.path.basename(_dir.rstrip("/"))
+            # Skip cime_config and TIM's test suites (test_fms, test_mom);
+            # the latter pull in gtest/test-only sources not meant for libfms.a.
+            if os.path.isdir(_dir) and _base != "cime_config" \
+                    and not _base.startswith("test_"):
                 filepath.append(os.path.join(fms_dir, _dir))
         with open(os.path.join(bldroot, "Filepath"), "w") as fd:
             for path in filepath:
@@ -78,6 +131,7 @@ def buildlib(bldroot, installpath, case):
         f'-I{os.path.join(fms_dir, "src", "diag_manager", "include")} '\
         f'-I{os.path.join(fms_dir, "src", "string_utils", "include")} '\
         f'-I{os.path.join(bldroot, "FMS")} '\
+        f'-I{os.path.join(amrex_install, "include")} '\
         '"'
 
     gmake_opts += " COMPLIB=libfms.a "

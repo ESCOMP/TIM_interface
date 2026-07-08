@@ -1,6 +1,12 @@
 [submodule "fms"]
 path = src
-url = https://github.com/ESCOMP/FMS
-fxtag = dev/ncar_0.1.2
+url = https://github.com/TURBO-ESM/TIM
+fxtag = 2b1743c40614ac1586109fd3e6337a8ff6f8780d
 fxrequired = AlwaysRequired
-fxDONOTUSEurl = https://github.com/ESCOMP/FMS
+fxDONOTUSEurl = https://github.com/TURBO-ESM/TIM
+[submodule "amrex"]
+path = amrex
+url = https://github.com/AMReX-Codes/amrex
+fxtag = 25.11
+fxrequired = AlwaysRequired
+fxDONOTUSEurl = https://github.com/AMReX-Codes/amrex
