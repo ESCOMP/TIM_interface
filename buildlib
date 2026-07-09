@@ -108,14 +108,33 @@ def buildlib(bldroot, installpath, case):
 
     fpfile = os.path.join(bldroot, "Filepath")
     if not os.path.isfile(fpfile):
+        # FMS I/O layers replaced by TIM (PIO-based) are excluded from the
+        # build entirely.  Their remaining in-tree consumers have been
+        # stripped or stubbed (see coupler_types, fms, field_manager,
+        # ensemble_manager, horiz_interp_conserve, libFMS).  mosaic2 is NOT
+        # excluded: its C sources (create_xgrid etc.) are FMS-I/O-free and
+        # required by horiz_interp_conserve; its two fms2_io-using Fortran
+        # files are dropped via src/mosaic2/.exclude instead.
+        tim_replaced = {"fms2_io", "diag_manager", "time_interp",
+                        "data_override", "axis_utils"}
         filepath = []
         for _dir in glob.iglob(os.path.join(fms_dir, "src", "*")):
             _base = os.path.basename(_dir.rstrip("/"))
             # Skip cime_config and TIM's test suites (test_fms, test_mom);
             # the latter pull in gtest/test-only sources not meant for libfms.a.
             if os.path.isdir(_dir) and _base != "cime_config" \
-                    and not _base.startswith("test_"):
+                    and not _base.startswith("test_") \
+                    and _base not in tim_replaced:
                 filepath.append(os.path.join(fms_dir, _dir))
+        # mkSrcfiles is NON-recursive (globs <dir>/*.{F,f,c,F90,f90,cpp} per
+        # Filepath entry), so the TIM C++/Fortran sources nested under
+        # src/tim/cpp/{core,io,diag} and src/tim/fortran are not picked up by
+        # the top-level src/* glob above. Add them explicitly.
+        for _sub in ("tim/cpp", "tim/cpp/core", "tim/cpp/io", "tim/cpp/diag",
+                     "tim/fortran"):
+            _d = os.path.join(fms_dir, "src", _sub)
+            if os.path.isdir(_d):
+                filepath.append(_d)
         with open(os.path.join(bldroot, "Filepath"), "w") as fd:
             for path in filepath:
                 fd.write(path + "\n")
@@ -126,9 +145,7 @@ def buildlib(bldroot, installpath, case):
     gmake_opts += "CASEROOT={} ".format(caseroot)
     gmake_opts += 'USER_INCLDIR="'\
         f'-I{os.path.join(fms_dir, "src", "include")} '\
-        f'-I{os.path.join(fms_dir, "src", "fms2_io", "include")} '\
         f'-I{os.path.join(fms_dir, "src", "mpp", "include")} '\
-        f'-I{os.path.join(fms_dir, "src", "diag_manager", "include")} '\
         f'-I{os.path.join(fms_dir, "src", "string_utils", "include")} '\
         f'-I{os.path.join(bldroot, "FMS")} '\
         f'-I{os.path.join(amrex_install, "include")} '\
