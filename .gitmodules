@@ -1,7 +1,7 @@
 [submodule "fms"]
 path = src
-url = https://github.com/TURBO-ESM/TIM
-fxtag = 2b1743c40614ac1586109fd3e6337a8ff6f8780d
+url = https://github.com/alperaltuntas/TIM
+fxtag = tim_0.0.1
 fxrequired = AlwaysRequired
 fxDONOTUSEurl = https://github.com/TURBO-ESM/TIM
 [submodule "amrex"]

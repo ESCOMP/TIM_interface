@@ -241,6 +241,17 @@ endif
 CSM_SHR_INCLUDE:=$(INSTALL_SHAREDPATH)/$(COMP_INTERFACE)/$(ESMFDIR)/$(NINST_VALUE)/include
 INCLDIR += -I$(CSM_SHR_INCLUDE)
 
+# TIM's C++ I/O backend (tim/cpp/io/tim_backend.cpp) is the one translation
+# unit that includes pio.h + netcdf.h. Both dirs come from Macros.make
+# (system parallelio / netcdf); the model already links -lpioc, so this only
+# supplies the compile-time include path. Harmless for the other sources.
+ifdef PIO_INCDIR
+  INCLDIR += -I$(PIO_INCDIR)
+endif
+ifdef NETCDF_PATH
+  INCLDIR += -I$(NETCDF_PATH)/include
+endif
+
 FFLAGS += $(FPPDEFS)
 FFLAGS_NOOPT += $(FPPDEFS)
 
